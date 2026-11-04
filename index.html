@@ -69,6 +69,54 @@
 
 <body class="bg-[#090d16] text-gray-100 font-sans min-h-screen flex flex-col justify-between antialiased">
 
+  <!-- LOGIN OVERLAY / MODAL -->
+  <div id="login-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mx-auto mb-3">
+          <i class="fa-solid fa-shield-halved text-3xl"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white tracking-wide">EWS AUTHENTICATION</h2>
+        <p class="text-xs text-gray-400 mt-1">Silakan masuk untuk mengakses sistem monitoring & kontrol</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4 text-xs">
+        <div id="login-error" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs text-center font-medium">
+          Username atau Password salah!
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Username</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+              <i class="fa-solid fa-user"></i>
+            </span>
+            <input type="text" id="login-username" required placeholder="admin / user" class="w-full pl-9 pr-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 text-xs">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Password</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+              <i class="fa-solid fa-key"></i>
+            </span>
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full pl-9 pr-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 text-xs">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all text-xs tracking-wider uppercase mt-2">
+          Masuk ke System
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-gray-800 text-[11px] text-gray-500 text-center space-y-1">
+        <p><strong>Admin:</strong> admin / admin123</p>
+        <p><strong>User:</strong> user / user123</p>
+      </div>
+    </div>
+  </div>
+
   <!-- TOP HEADER -->
   <header class="bg-gray-900/80 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -86,8 +134,8 @@
         </div>
       </div>
 
-      <!-- Live Status & Time -->
-      <div class="flex items-center space-x-3 sm:space-x-6">
+      <!-- Live Status, Profile & Time -->
+      <div class="flex items-center space-x-3 sm:space-x-4">
         <div class="text-right hidden md:block">
           <div id="live-clock" class="text-sm font-mono font-semibold text-gray-200">00:00:00 WITA</div>
           <div id="live-date" class="text-[10px] text-gray-400">23 Okt 2026</div>
@@ -98,9 +146,23 @@
           <span>Online</span>
         </div>
 
-        <button onclick="toggleSettingsModal()" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700" title="Pengaturan GAS & Telegram">
+        <!-- Tombol Pengaturan (Khusus Admin) -->
+        <button id="btn-settings" onclick="toggleSettingsModal()" class="hidden p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700" title="Pengaturan GAS & Telegram (Admin Only)">
           <i class="fa-solid fa-gear"></i>
         </button>
+
+        <!-- Profile / Role Tag & Logout Button -->
+        <div id="user-profile-bar" class="hidden items-center gap-2 pl-2 border-l border-gray-800">
+          <div class="text-right hidden sm:block">
+            <div id="user-display-name" class="text-xs font-bold text-gray-200">User</div>
+            <div id="user-display-role" class="text-[9px] uppercase tracking-wider text-blue-400 font-semibold">Monitoring</div>
+          </div>
+
+          <button onclick="handleLogout()" class="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors text-xs flex items-center gap-1 font-semibold" title="Keluar dari Sistem">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span class="hidden sm:inline">Logout</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -364,12 +426,12 @@
       <div class="flex items-center gap-4">
         <span>Google Apps Script Backend</span>
         <span>•</span>
-        <span>GitHub Pages Hosted</span>
+        <span>Created by UQ</span>
       </div>
     </div>
   </footer>
 
-  <!-- SETTINGS & TELEGRAM INTEGRATION MODAL -->
+  <!-- SETTINGS & TELEGRAM INTEGRATION MODAL (KHUSUS ADMIN) -->
   <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
       <div class="flex justify-between items-center pb-4 border-b border-gray-800 mb-4">
@@ -382,7 +444,7 @@
       <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4 text-xs">
         <div>
           <label class="block text-gray-300 font-semibold mb-1">URL Web App Google Apps Script (GAS)</label>
-          <input type="text" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/AKfycbwwHJNKIQf61TRquglBbEdkHnxb3pDvwvum56PE-YCX5DGaRRkuudUtvDyfhyolrrWcEw/exec" required class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]">
+          <input type="text" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/.../exec" required class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]">
           <p class="text-[10px] text-gray-500 mt-1">Dapatkan URL ini setelah Anda membuat Web App Deploy di Apps Script.</p>
         </div>
 
@@ -420,6 +482,7 @@
   <script>
     // Global App State
     const state = {
+      user: JSON.parse(sessionStorage.getItem('ews_user')) || null,
       gasUrl: localStorage.getItem('ews_gas_url') || '',
       telegramToken: localStorage.getItem('ews_telegram_token') || '',
       telegramChatId: localStorage.getItem('ews_telegram_chatid') || '',
@@ -431,6 +494,12 @@
       isAlarmActive: false
     };
 
+    // Registered Credentials Database
+    const USERS_DB = [
+      { username: 'admin', password: 'admin123', name: 'Administrator', role: 'admin' },
+      { username: 'user', password: 'user123', name: 'User Monitoring', role: 'user' }
+    ];
+
     // Initialize Application on Load
     document.addEventListener('DOMContentLoaded', () => {
       initClock();
@@ -439,6 +508,7 @@
       fetchWeather();
       loadSettingsToForm();
       populateInitialLogs();
+      checkAuthSession();
 
       // Register PWA Service Worker
       if ('serviceWorker' in navigator) {
@@ -447,6 +517,60 @@
           .catch(err => console.log('ServiceWorker registration failed:', err));
       }
     });
+
+    // Authentication & Role Check
+    function checkAuthSession() {
+      const loginModal = document.getElementById('login-modal');
+      const btnSettings = document.getElementById('btn-settings');
+      const userProfileBar = document.getElementById('user-profile-bar');
+
+      if (!state.user) {
+        loginModal.classList.remove('hidden');
+        userProfileBar.classList.add('hidden');
+        btnSettings.classList.add('hidden');
+      } else {
+        loginModal.classList.add('hidden');
+        userProfileBar.classList.remove('hidden');
+        userProfileBar.classList.add('flex');
+
+        document.getElementById('user-display-name').innerText = state.user.name;
+        document.getElementById('user-display-role').innerText = state.user.role.toUpperCase();
+
+        // Tampilkan tombol pengaturan hanya jika role ADMIN
+        if (state.user.role === 'admin') {
+          btnSettings.classList.remove('hidden');
+        } else {
+          btnSettings.classList.add('hidden');
+        }
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('login-username').value.trim();
+      const p = document.getElementById('login-password').value.trim();
+      const errEl = document.getElementById('login-error');
+
+      const foundUser = USERS_DB.find(usr => usr.username.toLowerCase() === u.toLowerCase() && usr.password === p);
+
+      if (foundUser) {
+        state.user = { name: foundUser.name, role: foundUser.role, username: foundUser.username };
+        sessionStorage.setItem('ews_user', JSON.stringify(state.user));
+        errEl.classList.add('hidden');
+        document.getElementById('login-form').reset();
+        checkAuthSession();
+      } else {
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
+        sessionStorage.removeItem('ews_user');
+        state.user = null;
+        checkAuthSession();
+      }
+    }
 
     // Realtime Clock
     function initClock() {
@@ -501,7 +625,6 @@
 
     // Leaflet.js Map Initialization
     function initMap() {
-      // Coordinate: Samarinda / Hills Area Example
       const lat = -0.4948;
       const lng = 117.1436;
 
@@ -511,7 +634,6 @@
         attribution: '&copy; OpenStreetMap'
       }).addTo(state.mapInstance);
 
-      // Posko Markers
       const points = [
         { id: 'POS-1', name: 'Pos 1 Jalur Utama', lat: -0.4948, lng: 117.1436, status: 'AMAN' },
         { id: 'POS-2', name: 'Pos Tebing Barat', lat: -0.4980, lng: 117.1480, status: 'WASPADA' },
@@ -563,7 +685,6 @@
       const wirePulled = data.wire_pulled === true || data.wire_pulled === 'true';
       const timestamp = new Date().toLocaleTimeString('id-ID');
 
-      // Update UI Telemetry Values
       document.getElementById('val-pitch').innerText = `${pitch.toFixed(1)}°`;
       document.getElementById('val-roll').innerText = `${roll.toFixed(1)}°`;
       document.getElementById('val-yaw').innerText = `${(data.yaw || 0.0).toFixed(1)}°`;
@@ -578,7 +699,6 @@
         wireEl.className = 'text-xs font-bold mt-1 px-2 py-0.5 rounded inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
       }
 
-      // Determine Status Level
       let status = 'AMAN';
       if (Math.abs(pitch) >= state.threshold || Math.abs(roll) >= state.threshold || wirePulled) {
         status = 'BAHAYA';
@@ -588,7 +708,6 @@
 
       updateStatusUI(status, pitch, roll, wirePulled);
 
-      // Add to Chart
       if (state.chartInstance) {
         state.chartInstance.data.labels.push(timestamp);
         state.chartInstance.data.datasets[0].data.push(pitch);
@@ -601,7 +720,6 @@
         state.chartInstance.update();
       }
 
-      // Prepend to Log Table
       addLogEntry({ timestamp, deviceId: data.device_id || 'ESP32-EWS-POS1', pitch, roll, wirePulled, status });
     }
 
@@ -692,10 +810,8 @@
         payload.pitch = 3.1; payload.roll = 1.8; payload.wire_pulled = true;
       }
 
-      // Local Frontend Live Update
       processTelemetry(payload);
 
-      // Optionally Forward to Google Apps Script Endpoint
       if (state.gasUrl) {
         fetch(state.gasUrl, {
           method: 'POST',
@@ -706,8 +822,12 @@
       }
     }
 
-    // Modal Settings Logic
+    // Modal Settings Logic (Protected for Admin Only)
     function toggleSettingsModal() {
+      if (!state.user || state.user.role !== 'admin') {
+        alert('Akses Ditolak: Fitur pengaturan hanya dapat diakses oleh Admin!');
+        return;
+      }
       const modal = document.getElementById('settings-modal');
       modal.classList.toggle('hidden');
     }
@@ -722,6 +842,10 @@
 
     function saveSettings(e) {
       e.preventDefault();
+      if (!state.user || state.user.role !== 'admin') {
+        alert('Akses Ditolak!');
+        return;
+      }
       state.gasUrl = document.getElementById('cfg-gas-url').value.trim();
       state.telegramToken = document.getElementById('cfg-telegram-token').value.trim();
       state.telegramChatId = document.getElementById('cfg-telegram-chatid').value.trim();
