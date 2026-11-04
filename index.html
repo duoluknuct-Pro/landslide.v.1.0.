@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="id" class="dark h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EWS Pergerakan Tanah & Longsor (PWA)</title>
+
+  <!-- PWA Metadata & Theme -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1163/1163624.png">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              bg: '#090d16',
+              card: '#111827',
+              border: '#1f2937',
+              accent: '#3b82f6',
+              danger: '#ef4444',
+              warning: '#f59e0b',
+              success: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Leaflet.js CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.03); }
+    }
+    .animate-pulse-fast {
+      animation: pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="bg-[#090d16] text-gray-100 font-sans min-h-screen flex flex-col justify-between antialiased">
+
+  <!-- TOP HEADER -->
+  <header class="bg-gray-900/80 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+          <i class="fa-solid fa-hill-rockslide text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-wide text-white flex items-center gap-2">
+            EWS LANDSLIDE <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">PWA LIVE</span>
+          </h1>
+          <p class="text-xs text-gray-400 hidden sm:block">Cyber-Safety Emergency Operations Center</p>
+        </div>
+      </div>
+
+      <!-- Live Status & Time -->
+      <div class="flex items-center space-x-3 sm:space-x-6">
+        <div class="text-right hidden md:block">
+          <div id="live-clock" class="text-sm font-mono font-semibold text-gray-200">00:00:00 WITA</div>
+          <div id="live-date" class="text-[10px] text-gray-400">23 Okt 2026</div>
+        </div>
+
+        <div id="connection-status" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>Online</span>
+        </div>
+
+        <button onclick="toggleSettingsModal()" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700" title="Pengaturan GAS & Telegram">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 flex-1">
+
+    <!-- ALERT BANNER (Dinamis saat BAHAYA) -->
+    <div id="danger-alert-banner" class="hidden rounded-2xl bg-red-950/80 border-2 border-red-500/80 p-4 sm:p-5 flex items-center justify-between animate-pulse-fast shadow-2xl shadow-red-900/50">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-red-600 flex items-center justify-center text-white text-2xl">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-red-100 uppercase tracking-wider">Peringatan Dini: Pergerakan Tanah Terdeteksi!</h3>
+          <p class="text-xs sm:text-sm text-red-300" id="danger-alert-desc">Sudut kemiringan melebihi batas toleransi aman. Harap segera lakukan evakuasi!</p>
+        </div>
+      </div>
+      <button onclick="ackAlert()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg">
+        Matikan Alarm
+      </button>
+    </div>
+
+    <!-- ROW 1: STATUS UTAMA EWS & WIDGET CUACA -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- CARD STATUS EWS (2 Column) -->
+      <div class="lg:col-span-2 rounded-2xl bg-gray-900 border border-gray-800 p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden shadow-xl">
+        <div class="absolute -right-10 -bottom-10 text-gray-800/20 text-9xl pointer-events-none">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+
+        <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-gauge-high text-blue-400"></i> Status Realtime Sistem EWS
+          </span>
+          <span id="last-update-tag" class="text-[11px] text-gray-500 font-mono">Updated: Just now</span>
+        </div>
+
+        <!-- Indicator Center -->
+        <div class="my-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div id="status-card-bg" class="w-full sm:w-1/2 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center transition-all duration-300">
+            <div id="status-icon" class="text-5xl text-emerald-400 mb-2">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div id="status-label" class="text-2xl font-black tracking-widest text-emerald-400 uppercase">AMAN</div>
+            <span id="status-subtext" class="text-xs text-gray-400 mt-1 text-center">Stabilitas Struktur Tanah Stabil</span>
+          </div>
+
+          <!-- Telemetry Values -->
+          <div class="w-full sm:w-1/2 grid grid-cols-2 gap-3">
+            <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-xl">
+              <div class="text-[10px] text-gray-400 uppercase font-semibold">Pitch (Kemiringan Depan)</div>
+              <div id="val-pitch" class="text-2xl font-mono font-bold text-blue-400">0.0°</div>
+            </div>
+            <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-xl">
+              <div class="text-[10px] text-gray-400 uppercase font-semibold">Roll (Kemiringan Samping)</div>
+              <div id="val-roll" class="text-2xl font-mono font-bold text-blue-400">0.0°</div>
+            </div>
+            <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-xl">
+              <div class="text-[10px] text-gray-400 uppercase font-semibold">Yaw (Rotasi Sumbu)</div>
+              <div id="val-yaw" class="text-xl font-mono font-bold text-gray-300">0.0°</div>
+            </div>
+            <div class="bg-gray-800/60 border border-gray-700/60 p-3 rounded-xl">
+              <div class="text-[10px] text-gray-400 uppercase font-semibold">Kawat Sensor Tarik</div>
+              <div id="val-wire" class="text-xs font-bold mt-1 px-2 py-0.5 rounded inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                NORMAL
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-800">
+          <span id="active-device-id" class="font-mono"><i class="fa-solid fa-microchip mr-1"></i> Device: ESP32-EWS-POS1</span>
+          <span>Threshold Batas: <strong id="val-threshold-disp" class="text-amber-400">15.0°</strong></span>
+        </div>
+      </div>
+
+      <!-- WIDGET CUACA & IKLIM REALTIME -->
+      <div class="rounded-2xl bg-gray-900 border border-gray-800 p-5 sm:p-6 flex flex-col justify-between shadow-xl relative">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-cloud-sun-rain text-amber-400"></i> Iklim & Cuaca Posko
+          </span>
+          <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700">Open-Meteo API</span>
+        </div>
+
+        <div class="my-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <i id="weather-icon" class="fa-solid fa-cloud-showers-heavy text-3xl text-blue-400"></i>
+              <div>
+                <div id="weather-temp" class="text-3xl font-bold text-white font-mono">26.5°C</div>
+                <div id="weather-desc" class="text-xs text-gray-400">Hujan Ringan Terdeteksi</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-gray-400 uppercase">Risiko Hidrometeorologi</div>
+              <div id="weather-risk" class="text-xs font-bold text-amber-400 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 mt-0.5 inline-block">
+                MODERAT
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-gray-800/40 p-2.5 rounded-xl border border-gray-800 flex items-center gap-2">
+              <i class="fa-solid fa-droplet text-blue-400"></i>
+              <div>
+                <div class="text-[10px] text-gray-400">Kelembapan</div>
+                <div id="weather-humidity" class="font-bold font-mono">88%</div>
+              </div>
+            </div>
+            <div class="bg-gray-800/40 p-2.5 rounded-xl border border-gray-800 flex items-center gap-2">
+              <i class="fa-solid fa-cloud-rain text-cyan-400"></i>
+              <div>
+                <div class="text-[10px] text-gray-400">Curah Hujan</div>
+                <div id="weather-rain" class="font-bold font-mono">12.4 mm/h</div>
+              </div>
+            </div>
+            <div class="bg-gray-800/40 p-2.5 rounded-xl border border-gray-800 flex items-center gap-2">
+              <i class="fa-solid fa-wind text-teal-400"></i>
+              <div>
+                <div class="text-[10px] text-gray-400">Kec. Angin</div>
+                <div id="weather-wind" class="font-bold font-mono">14 km/h</div>
+              </div>
+            </div>
+            <div class="bg-gray-800/40 p-2.5 rounded-xl border border-gray-800 flex items-center gap-2">
+              <i class="fa-solid fa-gauge text-purple-400"></i>
+              <div>
+                <div class="text-[10px] text-gray-400">Tekanan Udara</div>
+                <div id="weather-pressure" class="font-bold font-mono">1011 hPa</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-gray-500 italic pt-2 border-t border-gray-800 flex items-center justify-between">
+          <span>Lokasi: Samarinda / Sektor Tebing</span>
+          <i class="fa-solid fa-location-dot text-red-400"></i>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ROW 2: PETA LOKASI REALTIME & GRAFIK TREN -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- PETA LEAFLET.JS -->
+      <div class="rounded-2xl bg-gray-900 border border-gray-800 p-5 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800 mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-map-location-dot text-emerald-400"></i> Peta Sebaran Titik Pengamatan EWS
+          </span>
+          <span class="text-[10px] text-gray-500 font-mono">Interactive GIS Layer</span>
+        </div>
+        <div id="map" class="w-full h-72 rounded-xl border border-gray-800 overflow-hidden z-10"></div>
+      </div>
+
+      <!-- GRAFIK CHART.JS -->
+      <div class="rounded-2xl bg-gray-900 border border-gray-800 p-5 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800 mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-purple-400"></i> Grafik Tren Kemiringan MPU6050
+          </span>
+          <div class="flex gap-1">
+            <button onclick="updateChartTimeframe('live')" class="px-2 py-0.5 text-[10px] rounded bg-blue-600 text-white font-medium">LIVE</button>
+            <button onclick="updateChartTimeframe('1h')" class="px-2 py-0.5 text-[10px] rounded bg-gray-800 hover:bg-gray-700 text-gray-300">1H</button>
+          </div>
+        </div>
+        <div class="w-full h-72 relative">
+          <canvas id="tiltChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ROW 3: LOG TABEL REKAPITULASI & SIMULATOR ESP32 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- LOG RIWAYAT KEJADIAN (2 Column) -->
+      <div class="lg:col-span-2 rounded-2xl bg-gray-900 border border-gray-800 p-5 flex flex-col justify-between shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-800 mb-4">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-blue-400"></i> Log Pergeseran & Riwayat Alert
+          </span>
+          <div class="flex items-center gap-2">
+            <input type="text" id="log-search" onkeyup="filterLogs()" placeholder="Cari data log..." class="px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
+            <button onclick="exportCSV()" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-medium text-gray-300 flex items-center gap-1 transition-colors">
+              <i class="fa-solid fa-file-csv text-emerald-400"></i> Ekspor CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar max-h-64">
+          <table class="w-full text-left text-xs text-gray-300">
+            <thead class="text-[10px] uppercase bg-gray-800/80 text-gray-400 sticky top-0 z-10">
+              <tr>
+                <th class="px-3 py-2">Waktu</th>
+                <th class="px-3 py-2">Device ID</th>
+                <th class="px-3 py-2">Pitch</th>
+                <th class="px-3 py-2">Roll</th>
+                <th class="px-3 py-2">Kawat</th>
+                <th class="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody id="log-table-body" class="divide-y divide-gray-800">
+              <!-- Dynamically Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SIMULATOR SUITE ESP32 (1 Column) -->
+      <div class="rounded-2xl bg-gray-900 border border-gray-800 p-5 flex flex-col justify-between shadow-xl border-l-4 border-l-indigo-500">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800 mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+              <i class="fa-solid fa-flask text-indigo-400"></i> ESP32 Testing Suite (Simulator)
+            </span>
+            <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30">Dev Tool</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Simulasikan data payload HTTP POST dari ESP32 untuk menguji fungsionalitas sistem EWS & Notifikasi Telegram.</p>
+
+          <div class="space-y-2.5">
+            <button onclick="simulatePayload('NORMAL')" class="w-full py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between transition-all">
+              <span><i class="fa-solid fa-check-circle mr-2"></i> Mode 1: Kondisi Normal</span>
+              <span class="text-[10px] opacity-75">Pitch 1.2° | Roll 0.5°</span>
+            </button>
+
+            <button onclick="simulatePayload('WARNING')" class="w-full py-2 px-3 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-between transition-all">
+              <span><i class="fa-solid fa-triangle-exclamation mr-2"></i> Mode 2: Pergeseran Ringan</span>
+              <span class="text-[10px] opacity-75">Pitch 8.5° | Roll 6.2°</span>
+            </button>
+
+            <button onclick="simulatePayload('DANGER')" class="w-full py-2 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center justify-between transition-all">
+              <span><i class="fa-solid fa-radiation mr-2"></i> Mode 3: EMERGENCY LONGSOR</span>
+              <span class="text-[10px] opacity-75">Pitch 22.4° | Roll 18.1°</span>
+            </button>
+
+            <button onclick="simulatePayload('WIRE_CUT')" class="w-full py-2 px-3 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-semibold flex items-center justify-between transition-all">
+              <span><i class="fa-solid fa-bolt mr-2"></i> Mode 4: Kawat Sensor Putus</span>
+              <span class="text-[10px] opacity-75">Wire Pulled = True</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-gray-800 text-[11px] text-gray-500 flex justify-between items-center">
+          <span>Kirim langung ke Backend GAS</span>
+          <i class="fa-solid fa-paper-plane text-indigo-400"></i>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-900 border-t border-gray-800 py-4 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div>&copy; 2026 EWS Landslide Early Warning System - Mobile PWA Ready</div>
+      <div class="flex items-center gap-4">
+        <span>Google Apps Script Backend</span>
+        <span>•</span>
+        <span>GitHub Pages Hosted</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SETTINGS & TELEGRAM INTEGRATION MODAL -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+      <div class="flex justify-between items-center pb-4 border-b border-gray-800 mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-brands fa-telegram text-blue-400 text-lg"></i> Pengaturan Backend & Telegram
+        </h3>
+        <button onclick="toggleSettingsModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">URL Web App Google Apps Script (GAS)</label>
+          <input type="text" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/.../exec" required class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]">
+          <p class="text-[10px] text-gray-500 mt-1">Dapatkan URL ini setelah Anda membuat Web App Deploy di Apps Script.</p>
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Telegram Bot Token</label>
+          <input type="text" id="cfg-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]">
+          <p class="text-[10px] text-gray-500 mt-1">Akan disimpan dengan aman di ScriptProperties GAS.</p>
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Telegram Chat ID (Grup / Admin)</label>
+          <input type="text" id="cfg-telegram-chatid" placeholder="-100123456789" class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]">
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Threshold Sudut Danger (°)</label>
+          <input type="number" step="0.1" id="cfg-threshold" value="15.0" class="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 font-mono">
+        </div>
+
+        <div class="pt-4 border-t border-gray-800 flex items-center justify-between gap-3">
+          <button type="button" onclick="testTelegramAlert()" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-xl font-bold transition-all">
+            <i class="fa-solid fa-paper-plane mr-1"></i> Tes Kirim Telegram
+          </button>
+
+          <div class="flex gap-2">
+            <button type="button" onclick="toggleSettingsModal()" class="px-4 py-2 bg-gray-800 text-gray-300 rounded-xl font-medium">Batal</button>
+            <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-all">Simpan Pengaturan</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APP LOGIC -->
+  <script>
+    // Global App State
+    const state = {
+      gasUrl: localStorage.getItem('ews_gas_url') || '',
+      telegramToken: localStorage.getItem('ews_telegram_token') || '',
+      telegramChatId: localStorage.getItem('ews_telegram_chatid') || '',
+      threshold: parseFloat(localStorage.getItem('ews_threshold')) || 15.0,
+      logs: [],
+      chartInstance: null,
+      mapInstance: null,
+      markers: {},
+      isAlarmActive: false
+    };
+
+    // Initialize Application on Load
+    document.addEventListener('DOMContentLoaded', () => {
+      initClock();
+      initChart();
+      initMap();
+      fetchWeather();
+      loadSettingsToForm();
+      populateInitialLogs();
+
+      // Register PWA Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('PWA ServiceWorker registered:', reg.scope))
+          .catch(err => console.log('ServiceWorker registration failed:', err));
+      }
+    });
+
+    // Realtime Clock
+    function initClock() {
+      const updateClock = () => {
+        const now = new Date();
+        document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID') + ' WITA';
+        document.getElementById('live-date').innerText = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      };
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+
+    // Chart.js Initialization
+    function initChart() {
+      const ctx = document.getElementById('tiltChart').getContext('2d');
+      state.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['10:00', '10:05', '10:10', '10:15', '10:20', '10:25'],
+          datasets: [
+            {
+              label: 'Pitch (°)',
+              data: [0.8, 1.0, 1.2, 1.1, 1.3, 1.2],
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.3,
+              fill: true
+            },
+            {
+              label: 'Roll (°)',
+              data: [0.4, 0.5, 0.5, 0.6, 0.4, 0.5],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              tension: 0.3,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+          },
+          scales: {
+            x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+            y: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af', font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    // Leaflet.js Map Initialization
+    function initMap() {
+      // Coordinate: Samarinda / Hills Area Example
+      const lat = -0.4948;
+      const lng = 117.1436;
+
+      state.mapInstance = L.map('map').setView([lat, lng], 14);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(state.mapInstance);
+
+      // Posko Markers
+      const points = [
+        { id: 'POS-1', name: 'Pos 1 Jalur Utama', lat: -0.4948, lng: 117.1436, status: 'AMAN' },
+        { id: 'POS-2', name: 'Pos Tebing Barat', lat: -0.4980, lng: 117.1480, status: 'WASPADA' },
+        { id: 'POS-3', name: 'Pos Lintas Kamp', lat: -0.4910, lng: 117.1390, status: 'AMAN' }
+      ];
+
+      points.forEach(pt => {
+        const color = pt.status === 'BAHAYA' ? '#ef4444' : pt.status === 'WASPADA' ? '#f59e0b' : '#10b981';
+        const marker = L.circleMarker([pt.lat, pt.lng], {
+          radius: 9,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(state.mapInstance);
+
+        marker.bindPopup(`
+          <div style="color: #111;">
+            <strong>${pt.name}</strong><br>
+            Status: <b>${pt.status}</b><br>
+            Device: ${pt.id}
+          </div>
+        `);
+        state.markers[pt.id] = marker;
+      });
+    }
+
+    // Fetch Live Weather from Open-Meteo API
+    async function fetchWeather() {
+      try {
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-0.4948&longitude=117.1436&current_weather=true&hourly=precipitation,relativehumidity_2m');
+        const data = await res.json();
+        if (data && data.current_weather) {
+          const cw = data.current_weather;
+          document.getElementById('weather-temp').innerText = `${cw.temperature}°C`;
+          document.getElementById('weather-wind').innerText = `${cw.windspeed} km/h`;
+          document.getElementById('weather-desc').innerText = cw.weathercode > 3 ? 'Berawan / Potensi Hujan' : 'Cerah / Berawan';
+        }
+      } catch (err) {
+        console.warn('Weather API fallback to mock data');
+      }
+    }
+
+    // Process & Handle Telemetry Data
+    function processTelemetry(data) {
+      const pitch = parseFloat(data.pitch);
+      const roll = parseFloat(data.roll);
+      const wirePulled = data.wire_pulled === true || data.wire_pulled === 'true';
+      const timestamp = new Date().toLocaleTimeString('id-ID');
+
+      // Update UI Telemetry Values
+      document.getElementById('val-pitch').innerText = `${pitch.toFixed(1)}°`;
+      document.getElementById('val-roll').innerText = `${roll.toFixed(1)}°`;
+      document.getElementById('val-yaw').innerText = `${(data.yaw || 0.0).toFixed(1)}°`;
+      document.getElementById('last-update-tag').innerText = `Updated: ${timestamp}`;
+
+      const wireEl = document.getElementById('val-wire');
+      if (wirePulled) {
+        wireEl.innerText = 'TERPUTUS / TERANCIK';
+        wireEl.className = 'text-xs font-bold mt-1 px-2 py-0.5 rounded inline-block bg-red-500/20 text-red-400 border border-red-500/30';
+      } else {
+        wireEl.innerText = 'NORMAL';
+        wireEl.className = 'text-xs font-bold mt-1 px-2 py-0.5 rounded inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      }
+
+      // Determine Status Level
+      let status = 'AMAN';
+      if (Math.abs(pitch) >= state.threshold || Math.abs(roll) >= state.threshold || wirePulled) {
+        status = 'BAHAYA';
+      } else if (Math.abs(pitch) >= state.threshold / 2 || Math.abs(roll) >= state.threshold / 2) {
+        status = 'WASPADA';
+      }
+
+      updateStatusUI(status, pitch, roll, wirePulled);
+
+      // Add to Chart
+      if (state.chartInstance) {
+        state.chartInstance.data.labels.push(timestamp);
+        state.chartInstance.data.datasets[0].data.push(pitch);
+        state.chartInstance.data.datasets[1].data.push(roll);
+        if (state.chartInstance.data.labels.length > 10) {
+          state.chartInstance.data.labels.shift();
+          state.chartInstance.data.datasets[0].data.shift();
+          state.chartInstance.data.datasets[1].data.shift();
+        }
+        state.chartInstance.update();
+      }
+
+      // Prepend to Log Table
+      addLogEntry({ timestamp, deviceId: data.device_id || 'ESP32-EWS-POS1', pitch, roll, wirePulled, status });
+    }
+
+    // Update Visual Status UI
+    function updateStatusUI(status, pitch, roll, wire) {
+      const bg = document.getElementById('status-card-bg');
+      const icon = document.getElementById('status-icon');
+      const label = document.getElementById('status-label');
+      const subtext = document.getElementById('status-subtext');
+      const alertBanner = document.getElementById('danger-alert-banner');
+
+      if (status === 'BAHAYA') {
+        bg.className = 'w-full sm:w-1/2 p-6 rounded-2xl bg-red-500/20 border-2 border-red-500 flex flex-col items-center justify-center animate-pulse-fast';
+        icon.className = 'text-5xl text-red-400 mb-2';
+        icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+        label.className = 'text-2xl font-black tracking-widest text-red-400 uppercase';
+        label.innerText = 'BAHAYA / LONGSOR';
+        subtext.innerText = 'Pergeseran tanah kritis terdeteksi!';
+        alertBanner.classList.remove('hidden');
+        state.isAlarmActive = true;
+      } else if (status === 'WASPADA') {
+        bg.className = 'w-full sm:w-1/2 p-6 rounded-2xl bg-amber-500/15 border border-amber-500/50 flex flex-col items-center justify-center';
+        icon.className = 'text-5xl text-amber-400 mb-2';
+        icon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+        label.className = 'text-2xl font-black tracking-widest text-amber-400 uppercase';
+        label.innerText = 'WASPADA';
+        subtext.innerText = 'Pergerakan kecil terdeteksi';
+        alertBanner.classList.add('hidden');
+      } else {
+        bg.className = 'w-full sm:w-1/2 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center';
+        icon.className = 'text-5xl text-emerald-400 mb-2';
+        icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+        label.className = 'text-2xl font-black tracking-widest text-emerald-400 uppercase';
+        label.innerText = 'AMAN';
+        subtext.innerText = 'Stabilitas Struktur Tanah Stabil';
+        alertBanner.classList.add('hidden');
+      }
+    }
+
+    function ackAlert() {
+      document.getElementById('danger-alert-banner').classList.add('hidden');
+      state.isAlarmActive = false;
+    }
+
+    // Populate Initial Mock Logs
+    function populateInitialLogs() {
+      const mockLogs = [
+        { timestamp: '10:25:12', deviceId: 'ESP32-EWS-POS1', pitch: 1.2, roll: 0.5, wirePulled: false, status: 'AMAN' },
+        { timestamp: '10:20:00', deviceId: 'ESP32-EWS-POS1', pitch: 1.1, roll: 0.4, wirePulled: false, status: 'AMAN' },
+        { timestamp: '10:15:30', deviceId: 'ESP32-EWS-POS2', pitch: 7.8, roll: 5.2, wirePulled: false, status: 'WASPADA' }
+      ];
+      mockLogs.forEach(entry => addLogEntry(entry));
+    }
+
+    function addLogEntry(entry) {
+      state.logs.unshift(entry);
+      const tbody = document.getElementById('log-table-body');
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-gray-800/50 transition-colors';
+
+      const statusBadge = entry.status === 'BAHAYA'
+        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 font-bold">BAHAYA</span>'
+        : entry.status === 'WASPADA'
+        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">WASPADA</span>'
+        : '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">AMAN</span>';
+
+      tr.innerHTML = `
+        <td class="px-3 py-2.5 font-mono text-gray-400">${entry.timestamp}</td>
+        <td class="px-3 py-2.5 font-mono font-semibold">${entry.deviceId}</td>
+        <td class="px-3 py-2.5 font-mono">${entry.pitch}°</td>
+        <td class="px-3 py-2.5 font-mono">${entry.roll}°</td>
+        <td class="px-3 py-2.5">${entry.wirePulled ? '<span class="text-red-400 font-bold">PUTUS</span>' : '<span class="text-gray-400">OK</span>'}</td>
+        <td class="px-3 py-2.5">${statusBadge}</td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    // ESP32 Interactive Simulator Suite
+    function simulatePayload(mode) {
+      let payload = { device_id: 'ESP32-EWS-POS1', yaw: 0.0 };
+      if (mode === 'NORMAL') {
+        payload.pitch = 1.2; payload.roll = 0.5; payload.wire_pulled = false;
+      } else if (mode === 'WARNING') {
+        payload.pitch = 8.5; payload.roll = 6.2; payload.wire_pulled = false;
+      } else if (mode === 'DANGER') {
+        payload.pitch = 22.4; payload.roll = 18.1; payload.wire_pulled = false;
+      } else if (mode === 'WIRE_CUT') {
+        payload.pitch = 3.1; payload.roll = 1.8; payload.wire_pulled = true;
+      }
+
+      // Local Frontend Live Update
+      processTelemetry(payload);
+
+      // Optionally Forward to Google Apps Script Endpoint
+      if (state.gasUrl) {
+        fetch(state.gasUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(e => console.warn('GAS POST forward error:', e));
+      }
+    }
+
+    // Modal Settings Logic
+    function toggleSettingsModal() {
+      const modal = document.getElementById('settings-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    function loadSettingsToForm() {
+      document.getElementById('cfg-gas-url').value = state.gasUrl;
+      document.getElementById('cfg-telegram-token').value = state.telegramToken;
+      document.getElementById('cfg-telegram-chatid').value = state.telegramChatId;
+      document.getElementById('cfg-threshold').value = state.threshold;
+      document.getElementById('val-threshold-disp').innerText = `${state.threshold.toFixed(1)}°`;
+    }
+
+    function saveSettings(e) {
+      e.preventDefault();
+      state.gasUrl = document.getElementById('cfg-gas-url').value.trim();
+      state.telegramToken = document.getElementById('cfg-telegram-token').value.trim();
+      state.telegramChatId = document.getElementById('cfg-telegram-chatid').value.trim();
+      state.threshold = parseFloat(document.getElementById('cfg-threshold').value) || 15.0;
+
+      localStorage.setItem('ews_gas_url', state.gasUrl);
+      localStorage.setItem('ews_telegram_token', state.telegramToken);
+      localStorage.setItem('ews_telegram_chatid', state.telegramChatId);
+      localStorage.setItem('ews_threshold', state.threshold);
+
+      document.getElementById('val-threshold-disp').innerText = `${state.threshold.toFixed(1)}°`;
+      toggleSettingsModal();
+      alert('Pengaturan berhasil disimpan ke LocalStorage!');
+    }
+
+    function testTelegramAlert() {
+      if (!state.gasUrl) {
+        alert('Harap isi dan simpan URL Web App GAS terlebih dahulu!');
+        return;
+      }
+      fetch(`${state.gasUrl}?action=test_telegram&token=${encodeURIComponent(state.telegramToken)}&chat_id=${encodeURIComponent(state.telegramChatId)}`)
+        .then(() => alert('Sinyal uji coba Telegram dikirim via GAS!'))
+        .catch(err => alert('Gagal mengirim uji coba: ' + err));
+    }
+
+    // Filter Logs Table
+    function filterLogs() {
+      const q = document.getElementById('log-search').value.toLowerCase();
+      const rows = document.querySelectorAll('#log-table-body tr');
+      rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    // Export CSV
+    function exportCSV() {
+      let csv = 'Timestamp,Device_ID,Pitch,Roll,Wire_Pulled,Status\n';
+      state.logs.forEach(l => {
+        csv += `"${l.timestamp}","${l.deviceId}",${l.pitch},${l.roll},${l.wirePulled},"${l.status}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `EWS_Logs_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+  </script>
+</body>
+</html>

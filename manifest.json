@@ -1,0 +1,21 @@
+{
+  "short_name": "EWS Longsor",
+  "name": "Landslide & Soil Movement Early Warning System",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1163/1163624.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1163/1163624.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#090d16",
+  "theme_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
